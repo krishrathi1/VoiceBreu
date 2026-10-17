@@ -257,6 +257,25 @@ export const db = {
   },
 
   /**
+   * Fetch user directly from server DB
+   */
+  async getUserByEmail(email: string): Promise<UserRecord | null> {
+    try {
+      const res = await fetch(`/api/user/${encodeURIComponent(email)}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.user) {
+          this.setActiveSession(data.user)
+          return data.user
+        }
+      }
+    } catch (err) {
+      console.warn("[DB] Failed to fetch user by email", err)
+    }
+    return null
+  },
+
+  /**
    * Log out
    */
   logout() {

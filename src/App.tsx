@@ -354,6 +354,17 @@ export default function App() {
       } else {
         setTransactions([])
       }
+
+      // Background refresh from server DB
+      db.getUserByEmail(session.email).then((fresh) => {
+        if (fresh) {
+          setBalance(fresh.balance)
+          if (fresh.familyMembers) setFamilyMembers(fresh.familyMembers)
+          if (fresh.transactions) setTransactions(fresh.transactions as Transaction[])
+          if (fresh.policyNumber) setPolicyNumber(fresh.policyNumber)
+          if (fresh.sumInsured) setSumInsured(fresh.sumInsured)
+        }
+      })
     } else {
       setIsAuthenticated(false)
       setHasCompletedFamilySetup(false)
@@ -1372,39 +1383,6 @@ export default function App() {
                       </div>
                     </div>
                   ))}
-
-                {familyMembers.filter((m) => m && m.name && m.name.trim()).length === 0 && (
-                  <button
-                    type="button"
-                    className="insured-member-pill"
-                    style={{
-                      border: "1.5px dashed var(--green-dark)",
-                      background: "rgba(32, 169, 150, 0.06)",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => {
-                      setNewMemberName("")
-                      setActiveSheet("add_family_member")
-                    }}
-                  >
-                    <div
-                      className="insured-member-avatar"
-                      style={{
-                        background: "var(--green-dark)",
-                        color: "#fff",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Icon name="plus" size={16} />
-                    </div>
-                    <div className="insured-member-meta">
-                      <strong style={{ color: "var(--green-dark)" }}>+ Add Member</strong>
-                      <span>No family added yet</span>
-                    </div>
-                  </button>
-                )}
               </div>
 
               <div className="insurance-quick-actions">
@@ -1417,7 +1395,7 @@ export default function App() {
                   }}
                 >
                   <Icon name="plus" size={15} />
-                  <span>+ Add Member</span>
+                  <span>Add Member</span>
                 </button>
                 <button
                   type="button"
