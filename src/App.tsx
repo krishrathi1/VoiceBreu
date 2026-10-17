@@ -215,13 +215,6 @@ interface Transaction {
   date: string
 }
 
-const initialPeople = [
-  { name: "Maya", initials: "MS", tone: "yellow" },
-  { name: "Noah", initials: "NB", tone: "blue" },
-  { name: "Olivia", initials: "OJ", tone: "peach" },
-  { name: "Theo", initials: "TM", tone: "pink" },
-]
-
 type PeriodType = "1W" | "1M" | "3M" | "1Y"
 
 const cashFlowData: Record<
@@ -2650,20 +2643,32 @@ export default function App() {
                     </button>
                   </div>
                   <div className="payment-people" style={{ margin: "10px 0" }}>
-                    {initialPeople.map((person) => (
+                    {activeContacts.map((person) => (
                       <button
                         className={`person ${
                           selectedPerson === person.name ? "selected" : ""
                         }`}
-                        key={person.name}
+                        key={person.id}
                         onClick={() => setSelectedPerson(person.name)}
                       >
                         <span className={`avatar ${person.tone}`}>
                           {person.initials}
                         </span>
-                        <span>{person.name}</span>
+                        <span>{person.name.split(" ")[0]}</span>
                       </button>
                     ))}
+                    <button
+                      className="person"
+                      onClick={() => {
+                        setNewMemberName("")
+                        setActiveSheet("add_family_member")
+                      }}
+                    >
+                      <span className="avatar add-person">
+                        <Icon name="plus" size={18} />
+                      </span>
+                      <span>+ Add</span>
+                    </button>
                   </div>
 
                   <label className="field-label">Request Amount</label>
