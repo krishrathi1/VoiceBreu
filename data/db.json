@@ -1,0 +1,36 @@
+{
+  "users": [
+    {
+      "id": "usr_1792225092575_03368",
+      "name": "Krish Rathi",
+      "email": "krishrathi877@gmail.com",
+      "password": "krishrathiQ1@12",
+      "createdAt": "2026-10-17T08:18:12.575Z",
+      "balance": 15420,
+      "currency": "USD",
+      "cardFrozen": false,
+      "cardPin": "8429",
+      "monthlyLimit": 5000,
+      "notifications": true,
+      "biometrics": true,
+      "hasCompletedFamilySetup": true,
+      "policyNumber": "RNG-FL-2026-7999",
+      "sumInsured": 500000,
+      "familyMembers": [],
+      "transactions": [
+        {
+          "id": "tx_1792225092575",
+          "name": "Welcome Credit",
+          "detail": "Welcome Bonus · Today",
+          "amount": "+$15,420.00",
+          "rawAmount": 15420,
+          "kind": "$",
+          "tone": "lime",
+          "type": "income",
+          "category": "Bonus",
+          "date": "Oct 17, 2026"
+        }
+      ]
+    }
+  ]
+}
