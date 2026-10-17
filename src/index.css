@@ -1391,7 +1391,7 @@ button:active {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: conic-gradient(var(--green) 0 36%, #171918 36% 64%, #f0b93d 64% 85%, #dce2dd 85%);
+  background: #e2e8f0;
 }
 .donut::before {
   content: "";

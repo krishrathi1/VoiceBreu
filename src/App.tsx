@@ -204,6 +204,7 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
 }
 
 interface Transaction {
+  id?: string
   name: string
   detail: string
   amount: string
@@ -309,6 +310,13 @@ export default function App() {
   const [activeNav, setActiveNav] = useState("Overview")
   const [balance, setBalance] = useState(0)
   const [currency, setCurrency] = useState("USD")
+  const currencySymbols: Record<string, string> = {
+    USD: "$",
+    EUR: "€",
+    GBP: "£",
+    INR: "₹",
+  }
+  const currencySymbol = currencySymbols[currency] || "$"
   const [period, setPeriod] = useState<PeriodType>("1M")
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [query, setQuery] = useState("")
@@ -598,6 +606,169 @@ export default function App() {
       .reduce((sum, t) => sum + (Number(t.rawAmount) || 0), 0)
   }, [transactions])
 
+  const analyticsData = useMemo(() => {
+    const expenseList = transactions.filter((t) => t.type === "expense")
+    const incomeList = transactions.filter((t) => t.type === "income")
+
+    const totalSpent = expenseList.reduce(
+      (sum, t) => sum + (Number(t.rawAmount) || 0),
+      0,
+    )
+    const totalEarned = incomeList.reduce(
+      (sum, t) => sum + (Number(t.rawAmount) || 0),
+      0,
+    )
+
+    const netIncome = Math.max(0, totalEarned - totalSpent)
+    const avgDailySpend = totalSpent > 0 ? totalSpent / 30 : 0
+    const savingsRate =
+      totalEarned > 0
+        ? Math.max(
+            0,
+            Math.min(
+              100,
+              Math.round(((totalEarned - totalSpent) / totalEarned) * 100),
+            ),
+          )
+        : 0
+
+    // Dynamic 6 months spending distribution
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ]
+    const now = new Date()
+    const monthsData: {
+      name: string
+      year: number
+      month: number
+      amount: number
+    }[] = []
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      monthsData.push({
+        name: monthNames[d.getMonth()],
+        year: d.getFullYear(),
+        month: d.getMonth(),
+        amount: 0,
+      })
+    }
+
+    expenseList.forEach((t) => {
+      let d = new Date(t.date)
+      if (isNaN(d.getTime())) {
+        d = new Date()
+      }
+      const matched = monthsData.find(
+        (m) => m.year === d.getFullYear() && m.month === d.getMonth(),
+      )
+      if (matched) {
+        matched.amount += Number(t.rawAmount) || 0
+      } else {
+        monthsData[monthsData.length - 1].amount += Number(t.rawAmount) || 0
+      }
+    })
+
+    const maxMonthSpend = Math.max(...monthsData.map((m) => m.amount), 0)
+    const monthlyBars = monthsData.map((m) => ({
+      name: m.name,
+      amount: m.amount,
+      height:
+        maxMonthSpend > 0 && m.amount > 0
+          ? Math.max(14, Math.round((m.amount / maxMonthSpend) * 100))
+          : 0,
+    }))
+
+    // Dynamic categories breakdown
+    const catMap: Record<string, number> = {}
+    expenseList.forEach((t) => {
+      const cat = t.category || "General"
+      catMap[cat] = (catMap[cat] || 0) + (Number(t.rawAmount) || 0)
+    })
+
+    const colorMap: Record<string, string> = {
+      Shopping: "var(--green)",
+      "Food & drinks": "var(--ink)",
+      Food: "var(--ink)",
+      Dining: "var(--ink)",
+      Bills: "#f0b93d",
+      Utilities: "#f0b93d",
+      "Health & Insurance": "#8b5cf6",
+      Health: "#8b5cf6",
+      Insurance: "#8b5cf6",
+      Transfer: "#3b82f6",
+      General: "#94a3b8",
+      Other: "#94a3b8",
+    }
+
+    const fallbackColors = [
+      "var(--green)",
+      "var(--ink)",
+      "#f0b93d",
+      "#8b5cf6",
+      "#3b82f6",
+      "#ef4444",
+      "#06b6d4",
+    ]
+
+    const categories = Object.entries(catMap)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, amount], idx) => {
+        const pct = totalSpent > 0 ? Math.round((amount / totalSpent) * 100) : 0
+        const color =
+          colorMap[name] || fallbackColors[idx % fallbackColors.length]
+        return {
+          name,
+          amount,
+          percentage: pct,
+          color,
+        }
+      })
+
+    // Donut gradient
+    let donutGradient = "#e2e8f0"
+    if (totalSpent > 0 && categories.length > 0) {
+      let accumulated = 0
+      const stops: string[] = []
+      categories.forEach((cat, idx) => {
+        const start = accumulated
+        const end =
+          idx === categories.length - 1
+            ? 100
+            : Math.min(100, accumulated + cat.percentage)
+        stops.push(`${cat.color} ${start}% ${end}%`)
+        accumulated = end
+      })
+      if (stops.length > 0) {
+        donutGradient = `conic-gradient(${stops.join(", ")})`
+      }
+    }
+
+    return {
+      totalSpent,
+      totalEarned,
+      netIncome,
+      avgDailySpend,
+      savingsRate,
+      monthlyBars,
+      hasExpenses: totalSpent > 0,
+      hasTransactions: transactions.length > 0,
+      categories,
+      donutGradient,
+    }
+  }, [transactions])
+
+
   const activeContacts = useMemo(() => {
     const valid = familyMembers.filter((m) => m && m.name && m.name.trim())
     const tones = ["green", "blue", "yellow", "purple", "orange"]
@@ -680,20 +851,20 @@ export default function App() {
     const newTx: Transaction = {
       name: `Sent to ${selectedPerson}`,
       detail: `Transfer · Just now`,
-      amount: `-$${amt.toFixed(2)}`,
+      amount: `-${currencySymbol}${amt.toFixed(2)}`,
       rawAmount: amt,
       kind: selectedPerson.charAt(0),
       tone: "purple",
       type: "expense",
       category: "Transfer",
-      date: "Today",
+      date: new Date().toISOString(),
     }
     const updated = [newTx, ...transactions]
     setTransactions(updated)
     setActiveSheet(null)
     // Persist in DB
     db.updateActiveUser({ balance: newBal, transactions: updated })
-    notify(`$${amt.toFixed(2)} sent to ${selectedPerson}! (Saved in DB)`)
+    notify(`${currencySymbol}${amt.toFixed(2)} sent to ${selectedPerson}! (Saved in DB)`)
     setActionNote("")
   }
 
@@ -704,20 +875,20 @@ export default function App() {
     const newTx: Transaction = {
       name: "Top-up Deposit",
       detail: "Add money · Just now",
-      amount: `+$${amt.toFixed(2)}`,
+      amount: `+${currencySymbol}${amt.toFixed(2)}`,
       rawAmount: amt,
       kind: "+",
       tone: "green",
       type: "income",
       category: "Deposit",
-      date: "Today",
+      date: new Date().toISOString(),
     }
     const updated = [newTx, ...transactions]
     setTransactions(updated)
     setActiveSheet(null)
     // Persist in DB
     db.updateActiveUser({ balance: newBal, transactions: updated })
-    notify(`$${amt.toFixed(2)} added! (Saved in DB)`)
+    notify(`${currencySymbol}${amt.toFixed(2)} added! (Saved in DB)`)
   }
 
   function executeRequest() {
@@ -1199,15 +1370,23 @@ export default function App() {
 
                 <div className="balance-amount">
                   {balanceVisible
-                    ? `$${balance.toLocaleString("en-US", {
+                    ? `${currencySymbol}${balance.toLocaleString("en-US", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}`
-                    : "$••,•••.••"}
+                    : `${currencySymbol}••,•••.••`}
                 </div>
 
                 <div className="balance-change">
-                  <span>+8.2%</span> from last month
+                  {balance > 0 ? (
+                    <>
+                      <span>Active Funds</span> · Available to spend
+                    </>
+                  ) : (
+                    <>
+                      <span>New Account</span> · Click Add money below
+                    </>
+                  )}
                 </div>
 
                 <div className="balance-actions">
@@ -1257,7 +1436,7 @@ export default function App() {
                     aria-label="More options"
                     onClick={() =>
                       notify(
-                        `Total income: $${totalIncome.toLocaleString("en-US", {
+                        `Total income: ${currencySymbol}${totalIncome.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}`,
                       )
@@ -1269,7 +1448,7 @@ export default function App() {
                 <div>
                   <div className="stat-label">Income</div>
                   <div className="stat-value">
-                    $
+                    {currencySymbol}
                     {totalIncome.toLocaleString("en-US", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
@@ -1291,7 +1470,7 @@ export default function App() {
                     aria-label="More options"
                     onClick={() =>
                       notify(
-                        `Total expenses: $${totalExpenses.toLocaleString("en-US", {
+                        `Total expenses: ${currencySymbol}${totalExpenses.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}`,
                       )
@@ -1303,7 +1482,7 @@ export default function App() {
                 <div>
                   <div className="stat-label">Expenses</div>
                   <div className="stat-value">
-                    $
+                    {currencySymbol}
                     {totalExpenses.toLocaleString("en-US", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
@@ -1435,7 +1614,7 @@ export default function App() {
                   <span className="legend-dot green" />
                   Income{" "}
                   <strong>
-                    $
+                    {currencySymbol}
                     {totalIncome.toLocaleString("en-US", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
@@ -1446,7 +1625,7 @@ export default function App() {
                   <span className="legend-dot dark" />
                   Expenses{" "}
                   <strong>
-                    $
+                    {currencySymbol}
                     {totalExpenses.toLocaleString("en-US", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
@@ -1496,22 +1675,49 @@ export default function App() {
                     </defs>
                     <path
                       className="area-fill"
-                      d={cashFlowData[period].areaD}
+                      d={
+                        totalIncome === 0 && totalExpenses === 0
+                          ? "M0 195 L700 195 L700 210 L0 210 Z"
+                          : cashFlowData[period].areaD
+                      }
                     />
                     <path
                       className="income-line"
-                      d={cashFlowData[period].incomeD}
+                      d={
+                        totalIncome === 0
+                          ? "M0 195 L700 195"
+                          : cashFlowData[period].incomeD
+                      }
                     />
                     <path
                       className="expense-line"
-                      d={cashFlowData[period].expenseD}
+                      d={
+                        totalExpenses === 0
+                          ? "M0 195 L700 195"
+                          : cashFlowData[period].expenseD
+                      }
                     />
-                    <circle
-                      cx={cashFlowData[period].point.x}
-                      cy={cashFlowData[period].point.y}
-                      r="5.5"
-                      className="chart-point"
-                    />
+                    {totalIncome > 0 && (
+                      <circle
+                        cx={cashFlowData[period].point.x}
+                        cy={cashFlowData[period].point.y}
+                        r="5.5"
+                        className="chart-point"
+                      />
+                    )}
+                    {totalIncome === 0 && totalExpenses === 0 && (
+                      <text
+                        x="350"
+                        y="105"
+                        textAnchor="middle"
+                        fill="var(--muted)"
+                        fontSize="13"
+                        fontFamily="var(--font-sans)"
+                        style={{ opacity: 0.6 }}
+                      >
+                        No cash flow activity recorded yet
+                      </text>
+                    )}
                   </svg>
                   <div className="x-labels">
                     <span>{cashFlowData[period].labels[0]}</span>
@@ -1846,10 +2052,10 @@ export default function App() {
                   </div>
                 </div>
                 <div className="transaction-list">
-                  {transactions.slice(0, 4).map((item) => (
+                  {transactions.slice(0, 4).map((item, idx) => (
                     <button
                       className="transaction-row"
-                      key={item.name}
+                      key={item.id || `${item.name}-${idx}`}
                       onClick={() => {
                         setSelectedTransaction(item)
                         setActiveSheet("transaction_detail")
@@ -1868,6 +2074,18 @@ export default function App() {
                       <Icon name="chevron" size={15} />
                     </button>
                   ))}
+                  {transactions.length === 0 && (
+                    <div
+                      style={{
+                        padding: "24px 12px",
+                        textAlign: "center",
+                        color: "var(--muted)",
+                        fontSize: "12px",
+                      }}
+                    >
+                      No card activity recorded yet
+                    </div>
+                  )}
                 </div>
               </article>
             </div>
@@ -2069,25 +2287,50 @@ export default function App() {
               <div className="section-kicker">Financial insights</div>
               <div className="section-title">Know where your money goes</div>
               <div className="section-copy">
-                Your spending is 2.1% lower than last month.
+                {analyticsData.hasExpenses
+                  ? `Total spending across all categories is $${analyticsData.totalSpent.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}.`
+                  : "No spending recorded yet. Real-time insights will update as you transfer or spend."}
               </div>
             </div>
 
             <div className="analytics-stats">
               <article className="panel insight-stat">
                 <span>Net income</span>
-                <strong>$5,291.40</strong>
-                <small className="positive">↑ 14.8%</small>
+                <strong>
+                  $
+                  {analyticsData.netIncome.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </strong>
+                <small className={analyticsData.netIncome > 0 ? "positive" : ""}>
+                  {analyticsData.totalEarned > 0 ? "Live calculation" : "$0.00"}
+                </small>
               </article>
               <article className="panel insight-stat">
                 <span>Avg daily spend</span>
-                <strong>$104.29</strong>
-                <small className="negative">↑ 3.2%</small>
+                <strong>
+                  $
+                  {analyticsData.avgDailySpend.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </strong>
+                <small className={analyticsData.avgDailySpend > 0 ? "negative" : ""}>
+                  {analyticsData.avgDailySpend > 0 ? "30-day avg" : "No spend"}
+                </small>
               </article>
               <article className="panel insight-stat">
                 <span>Savings rate</span>
-                <strong>38.6%</strong>
-                <small className="positive">↑ 5.4%</small>
+                <strong>{analyticsData.savingsRate}%</strong>
+                <small className={analyticsData.savingsRate > 0 ? "positive" : ""}>
+                  {analyticsData.totalEarned > 0
+                    ? `${analyticsData.savingsRate}% saved`
+                    : "0%"}
+                </small>
               </article>
             </div>
 
@@ -2100,57 +2343,95 @@ export default function App() {
                   </div>
                 </div>
                 <div className="bar-chart">
-                  {[58, 73, 49, 82, 66, 42].map((height, index) => (
+                  {analyticsData.monthlyBars.map((col, index) => (
                     <div className="bar-column" key={index}>
                       <div>
-                        <span style={{ height: `${height}%` }} />
+                        <span
+                          style={{
+                            height: `${col.height}%`,
+                            opacity: col.amount > 0 ? 1 : 0.25,
+                            background:
+                              col.amount > 0 ? "var(--green)" : "#e2e8f0",
+                            transition:
+                              "height 0.4s ease, background 0.3s ease",
+                          }}
+                          title={
+                            col.amount > 0
+                              ? `$${col.amount.toFixed(2)}`
+                              : "$0.00"
+                          }
+                        />
                       </div>
-                      <small>
-                        {["Jan", "Feb", "Mar", "Apr", "May", "Jun"][index]}
-                      </small>
+                      <small>{col.name}</small>
                     </div>
                   ))}
                 </div>
+                {!analyticsData.hasExpenses && (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      color: "var(--muted)",
+                      fontSize: "12px",
+                      marginTop: 10,
+                      paddingBottom: 4,
+                    }}
+                  >
+                    No spending activity recorded in this period
+                  </div>
+                )}
               </article>
 
               <article className="panel category-panel">
                 <div className="panel-title">Top categories</div>
-                <div className="donut">
+                <div
+                  className="donut"
+                  style={{ background: analyticsData.donutGradient }}
+                >
                   <div>
-                    <strong>$3,128</strong>
+                    <strong>
+                      $
+                      {analyticsData.totalSpent.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </strong>
                     <span>Total spent</span>
                   </div>
                 </div>
-                <div className="category-list">
-                  <div>
-                    <span>
-                      <i className="cat-dot shopping" />
-                      Shopping
-                    </span>
-                    <strong>36% ($1,126)</strong>
+                {analyticsData.categories.length > 0 ? (
+                  <div className="category-list">
+                    {analyticsData.categories.map((cat) => (
+                      <div key={cat.name}>
+                        <span>
+                          <i
+                            className="cat-dot"
+                            style={{ background: cat.color }}
+                          />
+                          {cat.name}
+                        </span>
+                        <strong>
+                          {cat.percentage}% ($
+                          {cat.amount.toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                          )
+                        </strong>
+                      </div>
+                    ))}
                   </div>
-                  <div>
-                    <span>
-                      <i className="cat-dot food" />
-                      Food & drinks
-                    </span>
-                    <strong>28% ($876)</strong>
+                ) : (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "20px 8px",
+                      color: "var(--muted)",
+                      fontSize: "12px",
+                    }}
+                  >
+                    No categorized expenses recorded yet
                   </div>
-                  <div>
-                    <span>
-                      <i className="cat-dot bills" />
-                      Bills
-                    </span>
-                    <strong>21% ($657)</strong>
-                  </div>
-                  <div>
-                    <span>
-                      <i className="cat-dot other" />
-                      Other
-                    </span>
-                    <strong>15% ($469)</strong>
-                  </div>
-                </div>
+                )}
               </article>
             </div>
           </div>
@@ -2776,7 +3057,7 @@ export default function App() {
                       }}
                     >
                       <strong style={{ fontSize: 12 }}>
-                        Salary deposited (+$4,250.00)
+                        Family Insurance Protection Active
                       </strong>
                       <div
                         style={{
@@ -2785,31 +3066,48 @@ export default function App() {
                           marginTop: 3,
                         }}
                       >
-                        Payroll deposit from Acme Corp cleared.
+                        Policy #{policyNumber || "VB-FL-2026-7999"} covering{" "}
+                        {familyMembers.filter((m) => m.name.trim()).length + 1}{" "}
+                        member(s) with ${sumInsured.toLocaleString()} cashless cover.
                       </div>
                     </div>
-                    <div
-                      style={{
-                        padding: "12px 0",
-                        borderBottom: "1px solid var(--line)",
-                      }}
-                    >
-                      <strong style={{ fontSize: 12 }}>
-                        Card statement ready
-                      </strong>
+                    {transactions.slice(0, 3).map((tx, idx) => (
                       <div
+                        key={tx.id || idx}
                         style={{
-                          color: "var(--muted)",
-                          fontSize: 10,
-                          marginTop: 3,
+                          padding: "12px 0",
+                          borderBottom: "1px solid var(--line)",
                         }}
                       >
-                        Your monthly statement for May is ready to view.
+                        <strong style={{ fontSize: 12 }}>
+                          {tx.name} ({tx.amount})
+                        </strong>
+                        <div
+                          style={{
+                            color: "var(--muted)",
+                            fontSize: 10,
+                            marginTop: 3,
+                          }}
+                        >
+                          {tx.detail} · Category: {tx.category || "General"}
+                        </div>
                       </div>
-                    </div>
+                    ))}
+                    {transactions.length === 0 && (
+                      <div
+                        style={{
+                          padding: "16px 0",
+                          textAlign: "center",
+                          color: "var(--muted)",
+                          fontSize: 11,
+                        }}
+                      >
+                        No transaction alerts yet. When you transfer or receive funds, alerts will appear here in real time.
+                      </div>
+                    )}
                     <div style={{ padding: "12px 0" }}>
                       <strong style={{ fontSize: 12 }}>
-                        Security verification
+                        Account Security Active
                       </strong>
                       <div
                         style={{
@@ -2818,7 +3116,7 @@ export default function App() {
                           marginTop: 3,
                         }}
                       >
-                        New login from iPhone 15 Pro, Dallas, TX.
+                        VoiceBrue session linked to {userEmail || "your email"}.
                       </div>
                     </div>
                   </div>

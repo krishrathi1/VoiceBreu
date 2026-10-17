@@ -6,7 +6,7 @@
       "email": "krishrathi877@gmail.com",
       "password": "krishrathiQ1@12",
       "createdAt": "2026-10-17T08:18:12.575Z",
-      "balance": 15920,
+      "balance": 0,
       "currency": "INR",
       "cardFrozen": false,
       "cardPin": "8429",
@@ -17,31 +17,7 @@
       "policyNumber": "RNG-FL-2026-7999",
       "sumInsured": 500000,
       "familyMembers": [],
-      "transactions": [
-        {
-          "name": "Top-up Deposit",
-          "detail": "Add money · Just now",
-          "amount": "+$500.00",
-          "rawAmount": 500,
-          "kind": "+",
-          "tone": "green",
-          "type": "income",
-          "category": "Deposit",
-          "date": "Today"
-        },
-        {
-          "id": "tx_1792225092575",
-          "name": "Welcome Credit",
-          "detail": "Welcome Bonus · Today",
-          "amount": "+$15,420.00",
-          "rawAmount": 15420,
-          "kind": "$",
-          "tone": "lime",
-          "type": "income",
-          "category": "Bonus",
-          "date": "Oct 17, 2026"
-        }
-      ]
+      "transactions": []
     }
   ]
 }

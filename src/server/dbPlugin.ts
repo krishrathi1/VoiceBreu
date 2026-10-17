@@ -155,8 +155,8 @@ export function databasePlugin(): Plugin {
             email: cleanEmail,
             password: password ? String(password) : "password123",
             createdAt: new Date().toISOString(),
-            balance: 15420.0,
-            currency: "USD",
+            balance: 0.0,
+            currency: "INR",
             cardFrozen: false,
             cardPin: "8429",
             monthlyLimit: 5000,
@@ -166,24 +166,7 @@ export function databasePlugin(): Plugin {
             policyNumber: `RNG-FL-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
             sumInsured: 500000,
             familyMembers: [],
-            transactions: [
-              {
-                id: `tx_${Date.now()}`,
-                name: "Welcome Credit",
-                detail: "Welcome Bonus · Today",
-                amount: "+$15,420.00",
-                rawAmount: 15420.0,
-                kind: "$",
-                tone: "lime",
-                type: "income",
-                category: "Bonus",
-                date: new Date().toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                }),
-              },
-            ],
+            transactions: [],
           }
 
           db.users.push(newUser)
