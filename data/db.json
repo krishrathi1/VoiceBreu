@@ -6,7 +6,7 @@
       "email": "krishrathi877@gmail.com",
       "password": "krishrathiQ1@12",
       "createdAt": "2026-10-17T08:18:12.575Z",
-      "balance": 0,
+      "balance": 16420,
       "currency": "INR",
       "cardFrozen": false,
       "cardPin": "8429",
@@ -16,8 +16,28 @@
       "hasCompletedFamilySetup": true,
       "policyNumber": "RNG-FL-2026-7999",
       "sumInsured": 500000,
-      "familyMembers": [],
-      "transactions": []
+      "familyMembers": [
+        {
+          "id": "fam-1792226657063",
+          "name": "xyz",
+          "relation": "Mother",
+          "age": "30",
+          "coverType": "Health Floater ($500k)"
+        }
+      ],
+      "transactions": [
+        {
+          "name": "Top-up Deposit",
+          "detail": "Add money · Just now",
+          "amount": "+₹500.00",
+          "rawAmount": 500,
+          "kind": "+",
+          "tone": "green",
+          "type": "income",
+          "category": "Deposit",
+          "date": "2026-10-17T08:44:00.761Z"
+        }
+      ]
     }
   ]
 }
