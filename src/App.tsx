@@ -30,6 +30,7 @@ type IconName =
   | "heart"
   | "trash"
   | "database"
+  | "users"
 
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, React.ReactNode> = {
@@ -176,6 +177,13 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
         <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
       </>
     ),
+    users: (
+      <>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+      </>
+    ),
   }
 
   return (
@@ -312,7 +320,9 @@ export default function App() {
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [query, setQuery] = useState("")
   const [showSearch, setShowSearch] = useState(false)
-  const [selectedPerson, setSelectedPerson] = useState("Maya")
+  const [selectedPerson, setSelectedPerson] = useState("")
+  const [policyNumber, setPolicyNumber] = useState("")
+  const [sumInsured, setSumInsured] = useState(500000)
   const [toast, setToast] = useState("")
   const [cardFrozen, setCardFrozen] = useState(false)
   const [cardPin] = useState("8429")
@@ -339,6 +349,8 @@ export default function App() {
       setMonthlyLimit(session.monthlyLimit || 5000)
       setNotifications(session.notifications ?? true)
       setBiometrics(session.biometrics ?? true)
+      setPolicyNumber(session.policyNumber || "VB-FL-2026-7999")
+      setSumInsured(session.sumInsured || 500000)
       if (session.familyMembers && session.familyMembers.length > 0) {
         setFamilyMembers(session.familyMembers)
       } else {
@@ -412,6 +424,8 @@ export default function App() {
       setCardFrozen(user.cardFrozen)
       setMonthlyLimit(user.monthlyLimit)
       setHasCompletedFamilySetup(user.hasCompletedFamilySetup)
+      setPolicyNumber(user.policyNumber || "VB-FL-2026-7999")
+      setSumInsured(user.sumInsured || 500000)
       if (user.familyMembers && user.familyMembers.length > 0) {
         setFamilyMembers(user.familyMembers)
       }
@@ -441,6 +455,8 @@ export default function App() {
       setBalance(user.balance)
       setCurrency(user.currency)
       setHasCompletedFamilySetup(false)
+      setPolicyNumber(user.policyNumber || "VB-FL-2026-7999")
+      setSumInsured(user.sumInsured || 500000)
       setIsAuthLoading(false)
       setIsAuthenticated(true)
       notify(`Account created & saved in DB! Welcome, ${user.name}!`)
@@ -464,6 +480,8 @@ export default function App() {
       setBalance(user.balance)
       setCurrency(user.currency || "USD")
       setHasCompletedFamilySetup(user.hasCompletedFamilySetup)
+      setPolicyNumber(user.policyNumber || "VB-FL-2026-7999")
+      setSumInsured(user.sumInsured || 500000)
       setFamilyMembers(user.familyMembers || [])
       setTransactions((user.transactions || []) as Transaction[])
       setTimeout(() => {
@@ -549,8 +567,65 @@ export default function App() {
     notify(`${newMember.name} saved to Family Floater Policy in DB!`)
   }
 
+  const timeGreeting = useMemo(() => {
+    const hour = new Date().getHours()
+    if (hour < 12) return "Good morning"
+    if (hour < 18) return "Good afternoon"
+    return "Good evening"
+  }, [])
+
+  const currentDateStr = useMemo(() => {
+    return new Intl.DateTimeFormat("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    }).format(new Date())
+  }, [])
+
+  const totalIncome = useMemo(() => {
+    return transactions
+      .filter((t) => t.type === "income")
+      .reduce((sum, t) => sum + (Number(t.rawAmount) || 0), 0)
+  }, [transactions])
+
+  const totalExpenses = useMemo(() => {
+    return transactions
+      .filter((t) => t.type === "expense")
+      .reduce((sum, t) => sum + (Number(t.rawAmount) || 0), 0)
+  }, [transactions])
+
+  const activeContacts = useMemo(() => {
+    const valid = familyMembers.filter((m) => m && m.name && m.name.trim())
+    const tones = ["green", "blue", "yellow", "purple", "orange"]
+    return valid.map((m, idx) => ({
+      id: m.id,
+      name: m.name.trim(),
+      initials:
+        m.name
+          .trim()
+          .split(" ")
+          .map((p) => p[0])
+          .slice(0, 2)
+          .join("")
+          .toUpperCase() || m.name.slice(0, 2).toUpperCase(),
+      tone: tones[idx % tones.length],
+      relation: m.relation || "Family",
+      age: m.age,
+    }))
+  }, [familyMembers])
+
+  useEffect(() => {
+    if (activeContacts.length > 0) {
+      if (!selectedPerson || !activeContacts.find((c) => c.name === selectedPerson)) {
+        setSelectedPerson(activeContacts[0].name)
+      }
+    } else {
+      setSelectedPerson("")
+    }
+  }, [activeContacts])
+
   const pageTitles: Record<string, string> = {
-    Overview: `Good morning, ${userFirstName}`,
+    Overview: `${timeGreeting}, ${userFirstName}`,
     Cards: "Your cards & e-Health Pass",
     Payments: "Payments & Premiums",
     Analytics: "Insurance & Wealth Analytics",
@@ -905,69 +980,48 @@ export default function App() {
             </div>
           </div>
         ) : !hasCompletedFamilySetup ? (
-          /* FAMILY INSURANCE MEMBERS ONBOARDING */
+          /* SIMPLE CLEAN ADD FAMILY MEMBERS ONBOARDING */
           <div className="family-onboarding">
             <div className="family-header">
               <div className="family-shield-icon">
-                <Icon name="shield" size={28} />
+                <Icon name="users" size={26} />
               </div>
-              <span className="family-pill-tag">
-                <Icon name="heart" size={13} /> Family Floater Policy
-              </span>
-              <h2 className="family-title">Protect Your Family</h2>
+              <h2 className="family-title">Add Family Members</h2>
               <p className="family-subtitle">
-                Include your family members under your <strong>$500,000 Total Health & Hospitalization Cover</strong>. Add 0, 1, or more members, or skip and add anytime later.
+                Add your family members now, or skip and add anytime later.
               </p>
-            </div>
-
-            {/* Policy Plan Card */}
-            <div className="policy-badge-card">
-              <div className="policy-card-top">
-                <span className="policy-number-label">POLICY #RNG-FL-2026-9842</span>
-                <span className="policy-sum-chip">Family Floater Active</span>
-              </div>
-              <div className="policy-card-details">
-                <div>
-                  <div style={{ fontSize: 10, color: "#9ba19d" }}>Total Floater Cover</div>
-                  <div className="policy-main-cover">$500,000</div>
-                </div>
-                <div className="policy-network-stat">
-                  <strong>12,500+ Hospitals</strong>
-                  <span>100% Cashless Mediclaim</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Primary Policyholder (Self) */}
-            <div className="primary-insured-row">
-              <div className="primary-avatar">{userInitials}</div>
-              <div className="primary-info">
-                <strong>{userName}</strong>
-                <span>Primary Insured (Self) · Full Comprehensive Cover</span>
-              </div>
-              <span className="primary-tag">Primary</span>
             </div>
 
             {/* Additional Family Members Section */}
             <div className="family-section-head">
-              <strong>Family Members to Cover ({familyMembers.length})</strong>
-              <span>Minimum 0 or more</span>
+              <strong>Family Members ({familyMembers.length})</strong>
+              {familyMembers.length > 0 && (
+                <button
+                  type="button"
+                  className="add-member-top-btn"
+                  onClick={addFamilyMemberRow}
+                >
+                  <Icon name="plus" size={14} /> Add Member
+                </button>
+              )}
             </div>
 
             <div className="family-list">
               {familyMembers.length === 0 ? (
                 <div className="family-empty-box">
-                  <Icon name="heart" size={24} />
+                  <div className="family-empty-icon">
+                    <Icon name="users" size={28} />
+                  </div>
+                  <h3>No family members added yet</h3>
                   <p>
-                    No additional family members added yet. You are 100% covered. You can add family now or skip.
+                    You can add your family members now (spouse, child, parent) or skip and add anytime later.
                   </p>
                   <button
                     type="button"
-                    className="add-more-members-btn"
-                    style={{ padding: "8px 16px", marginTop: 4 }}
+                    className="add-family-btn"
                     onClick={addFamilyMemberRow}
                   >
-                    <Icon name="plus" size={15} /> Add Family Member
+                    <Icon name="plus" size={16} /> Add Family Member
                   </button>
                 </div>
               ) : (
@@ -982,18 +1036,13 @@ export default function App() {
                         aria-label="Remove member"
                         title="Remove member"
                       >
-                        <Icon name="trash" size={15} />
+                        <Icon name="trash" size={16} />
                       </button>
                     </div>
 
-                    <div className="member-fields-grid">
-                      <div>
-                        <label
-                          className="input-label"
-                          style={{ fontSize: 10, marginBottom: 3, display: "block" }}
-                        >
-                          Full Name
-                        </label>
+                    <div className="member-simple-inputs">
+                      <div className="input-group">
+                        <label className="input-label">Full Name</label>
                         <input
                           className="member-input"
                           type="text"
@@ -1004,83 +1053,43 @@ export default function App() {
                           }
                         />
                       </div>
-                      <div>
-                        <label
-                          className="input-label"
-                          style={{ fontSize: 10, marginBottom: 3, display: "block" }}
-                        >
-                          Relationship
-                        </label>
-                        <select
-                          className="member-select"
-                          value={member.relation}
-                          onChange={(e) =>
-                            updateFamilyMemberRow(
-                              member.id,
-                              "relation",
-                              e.target.value,
-                            )
-                          }
-                        >
-                          <option value="Spouse">Spouse</option>
-                          <option value="Son">Son</option>
-                          <option value="Daughter">Daughter</option>
-                          <option value="Father">Father</option>
-                          <option value="Mother">Mother</option>
-                          <option value="Brother">Brother</option>
-                          <option value="Sister">Sister</option>
-                          <option value="Dependent">Dependent</option>
-                        </select>
-                      </div>
-                    </div>
 
-                    <div
-                      className="member-fields-grid"
-                      style={{ gridTemplateColumns: "1fr 2fr" }}
-                    >
-                      <div>
-                        <label
-                          className="input-label"
-                          style={{ fontSize: 10, marginBottom: 3, display: "block" }}
-                        >
-                          Age
-                        </label>
-                        <input
-                          className="member-input"
-                          type="number"
-                          placeholder="Age (e.g. 26)"
-                          value={member.age}
-                          onChange={(e) =>
-                            updateFamilyMemberRow(member.id, "age", e.target.value)
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label
-                          className="input-label"
-                          style={{ fontSize: 10, marginBottom: 3, display: "block" }}
-                        >
-                          Cover Category
-                        </label>
-                        <div className="member-cover-chips">
-                          {[
-                            "Health Floater ($500k)",
-                            "Term Life ($250k)",
-                            "Critical Care ($100k)",
-                          ].map((cov) => (
-                            <button
-                              key={cov}
-                              type="button"
-                              className={`cover-chip-btn ${
-                                member.coverType === cov ? "active" : ""
-                              }`}
-                              onClick={() =>
-                                updateFamilyMemberRow(member.id, "coverType", cov)
-                              }
-                            >
-                              {cov.split(" ")[0]}
-                            </button>
-                          ))}
+                      <div className="member-grid-2">
+                        <div className="input-group">
+                          <label className="input-label">Relationship</label>
+                          <select
+                            className="member-select"
+                            value={member.relation}
+                            onChange={(e) =>
+                              updateFamilyMemberRow(
+                                member.id,
+                                "relation",
+                                e.target.value,
+                              )
+                            }
+                          >
+                            <option value="Spouse">Spouse</option>
+                            <option value="Son">Son</option>
+                            <option value="Daughter">Daughter</option>
+                            <option value="Father">Father</option>
+                            <option value="Mother">Mother</option>
+                            <option value="Brother">Brother</option>
+                            <option value="Sister">Sister</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+
+                        <div className="input-group">
+                          <label className="input-label">Age</label>
+                          <input
+                            className="member-input"
+                            type="number"
+                            placeholder="Age"
+                            value={member.age}
+                            onChange={(e) =>
+                              updateFamilyMemberRow(member.id, "age", e.target.value)
+                            }
+                          />
                         </div>
                       </div>
                     </div>
@@ -1094,7 +1103,7 @@ export default function App() {
                   className="add-more-members-btn"
                   onClick={addFamilyMemberRow}
                 >
-                  <Icon name="plus" size={16} /> + Add More Family Member
+                  <Icon name="plus" size={16} /> + Add Another Family Member
                 </button>
               )}
             </div>
@@ -1106,7 +1115,7 @@ export default function App() {
                 className="family-submit-btn"
                 onClick={() => handleSaveFamilySetup(false)}
               >
-                <span>Confirm & Activate Protection →</span>
+                <span>{familyMembers.length > 0 ? "Save & Continue →" : "Continue →"}</span>
               </button>
               <button
                 type="button"
@@ -1129,7 +1138,7 @@ export default function App() {
               />
             </div>
             <div className="user-greeting">
-              <div className="eyebrow">Tuesday, June 24</div>
+              <div className="eyebrow">{currentDateStr}</div>
               <div className="page-title">{pageTitles[activeNav]}</div>
             </div>
           </div>
@@ -1242,17 +1251,29 @@ export default function App() {
                   </div>
                   <button
                     aria-label="More options"
-                    onClick={() => notify("June income: $8,420.00")}
+                    onClick={() =>
+                      notify(
+                        `Total income: $${totalIncome.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}`,
+                      )
+                    }
                   >
                     <Icon name="more" size={16} />
                   </button>
                 </div>
                 <div>
                   <div className="stat-label">Income</div>
-                  <div className="stat-value">$8,420.00</div>
+                  <div className="stat-value">
+                    $
+                    {totalIncome.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </div>
                 </div>
                 <div className="stat-meta positive">
-                  ↑ 12.4% <span>vs last month</span>
+                  <span>From live transactions</span>
                 </div>
               </article>
 
@@ -1264,17 +1285,29 @@ export default function App() {
                   </div>
                   <button
                     aria-label="More options"
-                    onClick={() => notify("June expenses: $3,128.60")}
+                    onClick={() =>
+                      notify(
+                        `Total expenses: $${totalExpenses.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}`,
+                      )
+                    }
                   >
                     <Icon name="more" size={16} />
                   </button>
                 </div>
                 <div>
                   <div className="stat-label">Expenses</div>
-                  <div className="stat-value">$3,128.60</div>
+                  <div className="stat-value">
+                    $
+                    {totalExpenses.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </div>
                 </div>
                 <div className="stat-meta negative">
-                  ↓ 2.1% <span>vs last month</span>
+                  <span>From live transactions</span>
                 </div>
               </article>
             </section>
@@ -1307,7 +1340,10 @@ export default function App() {
                   </div>
                   <div>
                     <strong>Family Floater Protection</strong>
-                    <span>Policy #RNG-FL-2026-9842 · $500,000 Sum Insured</span>
+                    <span>
+                      Policy #{policyNumber || "VB-FL-2026-7999"} · $
+                      {sumInsured.toLocaleString("en-US")} Sum Insured
+                    </span>
                   </div>
                 </div>
                 <div className="insurance-active-tag">
@@ -1326,12 +1362,12 @@ export default function App() {
                 </div>
 
                 {familyMembers
-                  .filter((m) => m.name.trim())
+                  .filter((m) => m && m.name && m.name.trim())
                   .map((m) => (
                     <div className="insured-member-pill" key={m.id}>
                       <div
                         className="insured-member-avatar"
-                        style={{ background: "var(--green-dark)" }}
+                        style={{ background: "var(--green-dark)", color: "#fff" }}
                       >
                         {m.name.slice(0, 1).toUpperCase()}
                       </div>
@@ -1343,6 +1379,39 @@ export default function App() {
                       </div>
                     </div>
                   ))}
+
+                {familyMembers.filter((m) => m && m.name && m.name.trim()).length === 0 && (
+                  <button
+                    type="button"
+                    className="insured-member-pill"
+                    style={{
+                      border: "1.5px dashed var(--green-dark)",
+                      background: "rgba(32, 169, 150, 0.06)",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => {
+                      setNewMemberName("")
+                      setActiveSheet("add_family_member")
+                    }}
+                  >
+                    <div
+                      className="insured-member-avatar"
+                      style={{
+                        background: "var(--green-dark)",
+                        color: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Icon name="plus" size={16} />
+                    </div>
+                    <div className="insured-member-meta">
+                      <strong style={{ color: "var(--green-dark)" }}>+ Add Member</strong>
+                      <span>No family added yet</span>
+                    </div>
+                  </button>
+                )}
               </div>
 
               <div className="insurance-quick-actions">
@@ -1393,11 +1462,25 @@ export default function App() {
               <div className="chart-summary">
                 <div>
                   <span className="legend-dot green" />
-                  Income <strong>{cashFlowData[period].income}</strong>
+                  Income{" "}
+                  <strong>
+                    $
+                    {totalIncome.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </strong>
                 </div>
                 <div>
                   <span className="legend-dot dark" />
-                  Expenses <strong>{cashFlowData[period].expenses}</strong>
+                  Expenses{" "}
+                  <strong>
+                    $
+                    {totalExpenses.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </strong>
                 </div>
               </div>
 
@@ -1539,77 +1622,136 @@ export default function App() {
               <div className="panel-heading compact">
                 <div>
                   <div className="panel-title">Quick send</div>
-                  <div className="panel-subtitle">Send money in seconds</div>
+                  <div className="panel-subtitle">Send to family in seconds</div>
                 </div>
                 <button
                   className="add-contact"
-                  aria-label="Add contact"
-                  onClick={() => notify("Contact adder coming soon")}
+                  aria-label="Add family member"
+                  onClick={() => {
+                    setNewMemberName("")
+                    setActiveSheet("add_family_member")
+                  }}
+                  title="Add family member"
                 >
                   <Icon name="plus" size={17} />
                 </button>
               </div>
-              <div className="people-row">
-                {initialPeople.map((person) => (
-                  <button
-                    className={`person ${
-                      selectedPerson === person.name ? "selected" : ""
-                    }`}
-                    key={person.name}
-                    onClick={() => setSelectedPerson(person.name)}
-                  >
-                    <span className={`avatar ${person.tone}`}>
-                      {person.initials}
-                    </span>
-                    <span>{person.name}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="send-box">
-                <div>
-                  <span>Amount</span>
-                  <strong>$250.00</strong>
-                </div>
-                <span className="send-currency">
-                  USD <Icon name="chevron" size={13} />
-                </span>
-              </div>
-              <button
-                className="send-button"
-                onClick={() => {
-                  setActionAmount("250.00")
-                  setActiveSheet("transfer")
-                }}
-              >
-                Send to {selectedPerson} <Icon name="send" size={16} />
-              </button>
-            </article>
 
-            {/* Spending Limit Progress Panel */}
-            <article className="panel spending-panel">
-              <div className="panel-heading compact">
-                <div>
-                  <div className="panel-title">Spending limit</div>
-                  <div className="panel-subtitle">Monthly card usage</div>
-                </div>
-                <div className="limit-percent">
-                  {Math.round((3128.6 / monthlyLimit) * 100)}%
-                </div>
-              </div>
-              <div className="progress-track">
-                <span
+              {activeContacts.length > 0 ? (
+                <>
+                  <div className="people-row">
+                    {activeContacts.map((person) => (
+                      <button
+                        className={`person ${
+                          selectedPerson === person.name ? "selected" : ""
+                        }`}
+                        key={person.id}
+                        onClick={() => setSelectedPerson(person.name)}
+                      >
+                        <span className={`avatar ${person.tone}`}>
+                          {person.initials}
+                        </span>
+                        <span>{person.name.split(" ")[0]}</span>
+                      </button>
+                    ))}
+                    <button
+                      className="person"
+                      onClick={() => {
+                        setNewMemberName("")
+                        setActiveSheet("add_family_member")
+                      }}
+                      title="Add another member"
+                    >
+                      <span
+                        className="avatar"
+                        style={{
+                          background: "rgba(32, 169, 150, 0.12)",
+                          color: "var(--green-dark)",
+                          border: "1.5px dashed var(--green-dark)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Icon name="plus" size={16} />
+                      </span>
+                      <span>+ Add</span>
+                    </button>
+                  </div>
+                  <div className="send-box">
+                    <div>
+                      <span>Amount</span>
+                      <strong>$250.00</strong>
+                    </div>
+                    <span className="send-currency">
+                      USD <Icon name="chevron" size={13} />
+                    </span>
+                  </div>
+                  <button
+                    className="send-button"
+                    onClick={() => {
+                      setActionAmount("250.00")
+                      setActiveSheet("transfer")
+                    }}
+                  >
+                    Send to {selectedPerson || "Family Member"}{" "}
+                    <Icon name="send" size={16} />
+                  </button>
+                </>
+              ) : (
+                <div
                   style={{
-                    width: `${Math.min(
-                      (3128.6 / monthlyLimit) * 100,
-                      100,
-                    )}%`,
+                    padding: "24px 16px",
+                    textAlign: "center",
+                    background: "#f8faf9",
+                    borderRadius: 16,
+                    border: "1px dashed var(--line)",
+                    marginTop: 12,
                   }}
-                />
-              </div>
-              <div className="limit-copy">
-                <strong>$3,128.60</strong>
-                <span>of ${monthlyLimit.toLocaleString("en-US")}.00</span>
-              </div>
+                >
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: "var(--text-main)",
+                    }}
+                  >
+                    No family members added yet
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--muted)",
+                      margin: "4px 0 16px",
+                    }}
+                  >
+                    Add your family members to quickly transfer money to them.
+                  </div>
+                  <button
+                    type="button"
+                    style={{
+                      background: "var(--green-dark)",
+                      color: "#fff",
+                      border: "none",
+                      padding: "9px 20px",
+                      borderRadius: 12,
+                      fontWeight: 700,
+                      fontSize: 12,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                    onClick={() => {
+                      setNewMemberName("")
+                      setActiveSheet("add_family_member")
+                    }}
+                  >
+                    <Icon name="plus" size={15} />
+                    <span>+ Add Member</span>
+                  </button>
+                </div>
+              )}
             </article>
           </div>
         )}
@@ -1792,28 +1934,31 @@ export default function App() {
                 </div>
 
                 <div className="payment-people">
-                  {initialPeople.map((person) => (
+                  {activeContacts.map((person) => (
                     <button
                       className={`person ${
                         selectedPerson === person.name ? "selected" : ""
                       }`}
-                      key={person.name}
+                      key={person.id}
                       onClick={() => setSelectedPerson(person.name)}
                     >
                       <span className={`avatar ${person.tone}`}>
                         {person.initials}
                       </span>
-                      <span>{person.name}</span>
+                      <span>{person.name.split(" ")[0]}</span>
                     </button>
                   ))}
                   <button
                     className="person"
-                    onClick={() => notify("Contact picker opened")}
+                    onClick={() => {
+                      setNewMemberName("")
+                      setActiveSheet("add_family_member")
+                    }}
                   >
                     <span className="avatar add-person">
                       <Icon name="plus" size={18} />
                     </span>
-                    <span>New</span>
+                    <span>+ Add</span>
                   </button>
                 </div>
 
@@ -1891,21 +2036,34 @@ export default function App() {
 
               <div className="payment-side">
                 <article className="panel recipient-card">
-                  <div
-                    className={`avatar ${
-                      initialPeople.find((p) => p.name === selectedPerson)?.tone
-                    }`}
-                  >
-                    {
-                      initialPeople.find((p) => p.name === selectedPerson)
-                        ?.initials
-                    }
-                  </div>
-                  <div>
-                    <strong>{selectedPerson}</strong>
-                    <span>VoiceBrue member · Verified</span>
-                  </div>
-                  <span className="verified">✓</span>
+                  {selectedPerson ? (
+                    <>
+                      <div
+                        className={`avatar ${
+                          activeContacts.find((p) => p.name === selectedPerson)?.tone || "green"
+                        }`}
+                      >
+                        {
+                          activeContacts.find((p) => p.name === selectedPerson)
+                            ?.initials || selectedPerson.slice(0, 2).toUpperCase()
+                        }
+                      </div>
+                      <div>
+                        <strong>{selectedPerson}</strong>
+                        <span>
+                          {activeContacts.find((p) => p.name === selectedPerson)
+                            ?.relation
+                            ? `${activeContacts.find((p) => p.name === selectedPerson)?.relation} · Covered`
+                            : "Family Member"}
+                        </span>
+                      </div>
+                      <span className="verified">✓</span>
+                    </>
+                  ) : (
+                    <div style={{ padding: "8px 0", color: "var(--muted)", fontSize: 13 }}>
+                      No recipient selected. Click "+ Add" to include a family member.
+                    </div>
+                  )}
                 </article>
 
                 <article className="panel payment-summary">
@@ -2325,20 +2483,32 @@ export default function App() {
                   </div>
 
                   <div className="payment-people" style={{ margin: "10px 0" }}>
-                    {initialPeople.map((person) => (
+                    {activeContacts.map((person) => (
                       <button
                         className={`person ${
                           selectedPerson === person.name ? "selected" : ""
                         }`}
-                        key={person.name}
+                        key={person.id}
                         onClick={() => setSelectedPerson(person.name)}
                       >
                         <span className={`avatar ${person.tone}`}>
                           {person.initials}
                         </span>
-                        <span>{person.name}</span>
+                        <span>{person.name.split(" ")[0]}</span>
                       </button>
                     ))}
+                    <button
+                      className="person"
+                      onClick={() => {
+                        setNewMemberName("")
+                        setActiveSheet("add_family_member")
+                      }}
+                    >
+                      <span className="avatar add-person">
+                        <Icon name="plus" size={18} />
+                      </span>
+                      <span>+ Add</span>
+                    </button>
                   </div>
 
                   <label className="field-label">Amount</label>
@@ -3043,7 +3213,7 @@ export default function App() {
                           marginTop: 2,
                         }}
                       >
-                        Policy ID: RNG-FL-2026-9842
+                        Policy ID: {policyNumber || "VB-FL-2026-9842"}
                       </div>
                     </div>
                     <div className="policy-card-details">
