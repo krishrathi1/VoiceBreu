@@ -6,7 +6,7 @@
       "email": "krishrathi877@gmail.com",
       "password": "krishrathiQ1@12",
       "createdAt": "2026-10-17T08:18:12.575Z",
-      "balance": 15420,
+      "balance": 15920,
       "currency": "INR",
       "cardFrozen": false,
       "cardPin": "8429",
@@ -18,6 +18,17 @@
       "sumInsured": 500000,
       "familyMembers": [],
       "transactions": [
+        {
+          "name": "Top-up Deposit",
+          "detail": "Add money · Just now",
+          "amount": "+$500.00",
+          "rawAmount": 500,
+          "kind": "+",
+          "tone": "green",
+          "type": "income",
+          "category": "Deposit",
+          "date": "Today"
+        },
         {
           "id": "tx_1792225092575",
           "name": "Welcome Credit",
